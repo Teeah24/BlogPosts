@@ -1,82 +1,104 @@
 const express = require('express');
 
-const app = express();  // Initialize an Express app
+const mongoose = require('mongoose');
 
-const port = 4000;      // Define the port
-
-
-
-// Define a route for the root URL
-
-app.get('/', (req, res) => {
-
-  res.send('Welcome to my First Express server!');
-
-});
-app.post(`/about`, (req, res) => {
-  res.send('This is the About page.');
-});
-
-// Middleware to parse JSON bodies
-
+const app = express();
+const port = 4000;
 app.use(express.json());
-let blogPosts = [ 
-{ id: 1, title: 'Teeahs blog',
-   content: 'Welcome to Teeahs blog',
-    author: 'Mutiah Folashade'},
 
-{id: 2, title: 'Folas blog', 
-  content: 'We are excited to see you',
-   author: 'Yusuf Motunrayo'},
-];
-app.post ('/blogPosts' , (req, res ) => { 
-const { title, content, author} = req.body;
-const newblogPost = { id: blogPosts. length +1, title: title, content: content, author: author};
-blogPosts.push(newblogPost);
+// Connect to MongoDB
+mongoose.connect('mongodb+srv://Muteeah24:20010408@cluster0.q6neq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0',
+{ useNewUrlParser: true,
+  useUnifiedTopology: true})
+  .then(() => console.log('Connected to MongoDB...'))
+
+  .catch((err) => console.error('Could not connect to MongoDB...', err));
+
+app.listen(port, () => {
+
+  console.log(`Server is running on http://localhost:${port}`);
+
+});
+// Define a schema
+
+const blogPostSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+
+  content: { type: String, required: true },
+
+  author: {type: String, required: true}
+  
+});
+
+// Create a model
+
+const BlogPost = mongoose.model('BlogPost', blogPostSchema);
+
+app.post ('/blogPost' , async (req, res ) => { 
+const {title, content, author} = req.body;
+try {
+  const newblogPost = new BlogPost ({ title: 'Teaahs blog', content: 'We are thrilled to see you', author: 'Alabi Seun'});
+   
+await newblogPost.save();
 res.status(201).json(newblogPost);
+ } catch (error) {
+  console.log(error)
+  res.status(400).json({message: 'Error adding blog', error});
+}
 });
 
-app.get('/blogPosts' , (req, res ) => {
-res.json(blogPosts)
+app.get('/blogPost', async (req, res ) => {
+try {
+  const blogPost = await BlogPost.find();
+  res.json(blogPost);
+} catch (error) {
+  res.status(500).json({message: 'Error fetching blog', error});
+}
 });
 
-app.get ('/blogPost/:id' , (req, res ) => {
-const blogPost = blogPosts.find(bp => bp.id === parseInt(req.params.id));
-if ( !blogPost ) {
+app.get ('/blogPost/:id' , async (req, res ) => {
+try {
+  const BlogPost = await
+  BlogPost.findById(req.params.id);
+if ( !BlogPost ) {
 return res.status(404).json({ message: 'Post not found '});
 }
-res.json(blogPosts)
+res.json(BlogPost);
+} catch (error) {
+res.status(500).json({message: 'Error feching post', error});
+}
 });
-app.put ('/blogPosts/:id' , ( req, res ) => {
-const blogPost= blogPosts.find(bp => bp.id === parseInt (req.params.id));
-if ( ! blogPost ) {
+app.put ('/blogPost/:id' , async ( req, res ) => {
+const { title, content, author } =  req.body;
+try {
+  const updatedBlogPost = await 
+  BlogPost.findByIdAndUpdate(req.params.id,
+    { title, content, author },
+   { new: true, runValidators: true }
+);
+if ( !updatedBlogPost ) {
 return res.status(404).json({ message: 'post not found '});
 }
-const { title, content, author } = req.body;
-blogPost.title = title || blogPost.title;
-blogPost.content = content || blogPost.content;
-blogPost.author = author || blogPost.author;
-
-res.json(blogPost);
+res.json(updatedBlogPost);
+} catch (error) {
+  res.status(400).json({message: 'Error updating blog', error});
+}
 });
-app.delete('/blogPosts/:id', (req, res) => {
 
-  const blogPostsIndex = blogPosts.findIndex(bp => bp.id === parseInt(req.params.id));
+ 
+app.delete('/blogPost/:id', async (req, res) => {
+try {
+  const deletedBlogPost = await 
+BlogPost.findByIdAndDelete(req.params.id);
 
-  if (blogPostsIndex === -1) {
+  if (!deletedBlogPost) {
 
     return res.status(404).json({ message: 'Post not found' });
 
   }
 
-  blogPosts.splice(blogPostsIndex, 1);
-
   res.json({ message: 'Blog deleted' });
-
-});
-
-app.listen(port, () => {
-
-  console.log(`Server running at http://localhost:${port}`);
-
+} catch (error) {
+  res.status(500).json({ message: 'Error deleting post', error });
+}
 });
